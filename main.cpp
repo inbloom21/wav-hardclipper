@@ -36,7 +36,6 @@ int main(){
 
     while (inputFile.read(chunkId, 4) && inputFile.read(reinterpret_cast<char*>(&chunkSize), 4)){
         if (std::strncmp(chunkId, "fmt ", 4) == 0){
-            uint16_t audioFormat {0};
             inputFile.read(reinterpret_cast<char*>(&audioFormat), 2);
             if (audioFormat != 1){
                 std::cerr << "The WAV file isn't in PCM format!\n";
@@ -50,7 +49,7 @@ int main(){
                 inputFile.ignore(chunkSize - 16);
             }
         } else if (std::strncmp(chunkId, "data", 4) == 0){
-            size_t samples {chunkSize / sizeof(int16_t)};
+            int samples {chunkSize / sizeof(int16_t)};
             audioData.resize(samples);
             inputFile.read(reinterpret_cast<char*>(audioData.data()), chunkSize);
             foundData = true;
@@ -81,6 +80,40 @@ int main(){
             audioData[i] = static_cast<int16_t>(amplified);
         } 
     }
+
+    // write the new file
+    std::ofstream outputFile(outputPath, std::ios::binary);
+
+    uint32_t newDataSize {audioData.size() * sizeof(int16_t)};
+    uint32_t newRiffSize {36 + newDataSize};
+
+    // new RIFF
+    outputFile.write("RIFF", 4);
+    outputFile.write(reinterpret_cast<char*>(&newRiffSize), 4);
+    outputFile.write("WAVE", 4);
+
+    // new fmt
+    outputFile.write("fmt ", 4);
+    uint32_t fmtSize {16};
+    outputFile.write(reinterpret_cast<const char*>(&fmtSize), 4);
+    outputFile.write(reinterpret_cast<const char*>(&audioFormat), 2);
+    outputFile.write(reinterpret_cast<const char*>(&numChannels), 2);
+    outputFile.write(reinterpret_cast<const char*>(&sampleRate), 4);
+
+    uint32_t byteRate {sampleRate * numChannels * 2};
+    outputFile.write(reinterpret_cast<const char*>(&byteRate), 4);
+
+    uint16_t blockAlign {numChannels * 2};
+    outputFile.write(reinterpret_cast<const char*>(&blockAlign), 2);
+    outputFile.write(reinterpret_cast<const char*>(&bitsPerSample), 2);
+
+    // new data
+    outputFile.write("data", 4);
+    outputFile.write(reinterpret_cast<const char*>(&newDataSize), 4);
+    outputFile.write(reinterpret_cast<const char*>(audioData.data()), newDataSize);
+    
+    outputFile.close();
+    std::cout << "New WAV file is saved!\n";
 
     return 0;
 }
