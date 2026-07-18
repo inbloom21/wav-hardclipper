@@ -49,7 +49,7 @@ int main(){
                 inputFile.ignore(chunkSize - 16);
             }
         } else if (std::strncmp(chunkId, "data", 4) == 0){
-            int samples {chunkSize / sizeof(int16_t)};
+            size_t samples {chunkSize / sizeof(int16_t)};
             audioData.resize(samples);
             inputFile.read(reinterpret_cast<char*>(audioData.data()), chunkSize);
             foundData = true;
@@ -84,7 +84,7 @@ int main(){
     // write the new file
     std::ofstream outputFile(outputPath, std::ios::binary);
 
-    uint32_t newDataSize {audioData.size() * sizeof(int16_t)};
+    uint32_t newDataSize {static_cast<uint32_t>(audioData.size() * sizeof(int16_t))};
     uint32_t newRiffSize {36 + newDataSize};
 
     // new RIFF
@@ -103,7 +103,7 @@ int main(){
     uint32_t byteRate {sampleRate * numChannels * 2};
     outputFile.write(reinterpret_cast<const char*>(&byteRate), 4);
 
-    uint16_t blockAlign {numChannels * 2};
+    uint16_t blockAlign {static_cast<uint16_t>(numChannels * 2)};
     outputFile.write(reinterpret_cast<const char*>(&blockAlign), 2);
     outputFile.write(reinterpret_cast<const char*>(&bitsPerSample), 2);
 
