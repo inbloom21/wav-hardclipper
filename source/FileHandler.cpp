@@ -1,18 +1,13 @@
+#include "FileHandler.h"
 #include <iostream>
 #include <fstream>
-#include <vector>
-#include <cstdint>
 #include <cstring>
 
-int main(){
-    std::string inputPath {"../input.wav"};
-    std::string outputPath {"../output.wav"};
-
-    // open wav file
+bool FileHandler::load(std::string& inputPath){
     std::ifstream inputFile(inputPath, std::ios::binary);
     if (!inputFile.is_open()){
         std::cerr << "Could not open file!\n";
-        return 1;
+        return false;
     }
     
     // RIFF chunk extraction
@@ -27,11 +22,6 @@ int main(){
 
     // fmt and data extraction
     uint16_t audioFormat {0};
-    uint16_t numChannels {0};
-    uint32_t sampleRate {0};
-    uint16_t bitsPerSample {0};
-
-    std::vector<int16_t> audioData;
     bool foundData {false};
 
     while (inputFile.read(chunkId, 4) && inputFile.read(reinterpret_cast<char*>(&chunkSize), 4)){
@@ -62,26 +52,13 @@ int main(){
 
     if (!foundData || bitsPerSample != 16){
         std::cerr << "Can't find the data!\n";
-        return 1;
+        return false;
     }
     std::cout << "Found " << audioData.size() << " samples at " << sampleRate << "Hz!\n";
+    return true;
+}
 
-    // applying hardclipper
-    float gain {4.0f};
-    int16_t threshold {15000};
-
-    for (size_t i = 0; i < audioData.size(); i++){
-        float amplified {audioData[i] * gain};
-        if (amplified > threshold){
-            audioData[i] = threshold;
-        } else if (amplified < -threshold){
-            audioData[i] = -threshold;
-        } else{
-            audioData[i] = static_cast<int16_t>(amplified);
-        } 
-    }
-
-    // write the new file
+bool FileHandler::save(std::string& outputPath){
     std::ofstream outputFile(outputPath, std::ios::binary);
 
     uint32_t newDataSize {static_cast<uint32_t>(audioData.size() * sizeof(int16_t))};
@@ -96,7 +73,10 @@ int main(){
     outputFile.write("fmt ", 4);
     uint32_t fmtSize {16};
     outputFile.write(reinterpret_cast<const char*>(&fmtSize), 4);
+
+    uint16_t audioFormat {1};
     outputFile.write(reinterpret_cast<const char*>(&audioFormat), 2);
+
     outputFile.write(reinterpret_cast<const char*>(&numChannels), 2);
     outputFile.write(reinterpret_cast<const char*>(&sampleRate), 4);
 
@@ -115,5 +95,9 @@ int main(){
     outputFile.close();
     std::cout << "New WAV file is saved!\n";
 
-    return 0;
+    return true;
+}
+
+std::vector<int16_t>& FileHandler::getAudioData(){
+    return audioData;
 }
